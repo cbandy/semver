@@ -3,38 +3,30 @@
 CREATE OR REPLACE FUNCTION semver_compare(text, text)
 RETURNS integer AS $$
 
-    WITH
-    portion ("left", "right") AS (
-        VALUES (
-            (SELECT * FROM regexp_matches($1, '^([[:digit:].]+)(?:-([[:alnum:].-]+))?(?:\+([[:alnum:].-]+))?$')),
-            (SELECT * FROM regexp_matches($2, '^([[:digit:].]+)(?:-([[:alnum:].-]+))?(?:\+([[:alnum:].-]+))?$'))
-        )
-    ),
-    version ("left", "right") AS (
-        SELECT
-            string_to_array(portion.left[1], '.')::integer[],
-            string_to_array(portion.right[1], '.')::integer[]
-        FROM portion
-    ),
-    prerelease ("left", "right") AS (
-        SELECT
-            (SELECT array_agg(CASE WHEN v ~ '^\d+$' THEN ROW(''::text, v::integer) ELSE ROW(v) END) FROM unnest(string_to_array(lower(portion.left[2]), '.')) x (v)),
-            (SELECT array_agg(CASE WHEN v ~ '^\d+$' THEN ROW(''::text, v::integer) ELSE ROW(v) END) FROM unnest(string_to_array(lower(portion.right[2]), '.')) x (v))
-        FROM portion
-    )
     SELECT CASE
-        WHEN version.left IS NULL OR version.right IS NULL THEN NULL
-        WHEN array_length(version.left, 1) < 3 OR array_length(version.right, 1) < 3 THEN NULL
-        WHEN version.left < version.right THEN -1
-        WHEN version.left > version.right THEN 1
+        WHEN left_version IS NULL OR right_version IS NULL THEN NULL
+        WHEN array_length(left_version, 1) < 3 OR array_length(right_version, 1) < 3 THEN NULL
+        WHEN left_version < right_version THEN -1
+        WHEN left_version > right_version THEN 1
         ELSE CASE
-            WHEN prerelease.left IS NOT NULL AND prerelease.right IS NULL THEN -1
-            WHEN prerelease.left IS NULL AND prerelease.right IS NOT NULL THEN 1
-            WHEN prerelease.left < prerelease.right THEN -1
-            WHEN prerelease.left > prerelease.right THEN 1
+            WHEN left_prerelease IS NOT NULL AND right_prerelease IS NULL THEN -1
+            WHEN left_prerelease IS NULL AND right_prerelease IS NOT NULL THEN 1
+            WHEN left_prerelease < right_prerelease THEN -1
+            WHEN left_prerelease > right_prerelease THEN 1
             ELSE 0
         END
     END
-    FROM version, prerelease
+    FROM (
+        SELECT
+            string_to_array(left_portions[1], '.')::integer[],
+            string_to_array(right_portions[1], '.')::integer[],
+
+            (SELECT array_agg(CASE WHEN v ~ '^\d+$' THEN ROW(''::text, v::integer) ELSE ROW(v) END) FROM unnest(string_to_array(lower(left_portions[2]), '.')) x (v)),
+            (SELECT array_agg(CASE WHEN v ~ '^\d+$' THEN ROW(''::text, v::integer) ELSE ROW(v) END) FROM unnest(string_to_array(lower(right_portions[2]), '.')) x (v))
+        FROM (VALUES (
+            (SELECT * FROM regexp_matches($1, '^([[:digit:].]+)(?:-([[:alnum:].-]+))?(?:\+([[:alnum:].-]+))?$')),
+            (SELECT * FROM regexp_matches($2, '^([[:digit:].]+)(?:-([[:alnum:].-]+))?(?:\+([[:alnum:].-]+))?$'))
+        )) x (left_portions, right_portions)
+    ) x (left_version, right_version, left_prerelease, right_prerelease)
 
 $$ LANGUAGE SQL IMMUTABLE STRICT;
