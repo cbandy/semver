@@ -24,8 +24,8 @@ RETURNS integer AS $$
             (SELECT array_agg(CASE WHEN v ~ '^\d+$' THEN ROW(''::text, v::integer) ELSE ROW(v) END) FROM unnest(string_to_array(lower(left_portions[2]), '.')) x (v)),
             (SELECT array_agg(CASE WHEN v ~ '^\d+$' THEN ROW(''::text, v::integer) ELSE ROW(v) END) FROM unnest(string_to_array(lower(right_portions[2]), '.')) x (v))
         FROM (VALUES (
-            (SELECT * FROM regexp_matches($1, '^([[:digit:].]+)(?:-([[:alnum:].-]+))?(?:\+([[:alnum:].-]+))?$')),
-            (SELECT * FROM regexp_matches($2, '^([[:digit:].]+)(?:-([[:alnum:].-]+))?(?:\+([[:alnum:].-]+))?$'))
+            (SELECT * FROM regexp_matches($1, '^([[:digit:].]+)(?:-([[:alnum:].-]+))?(?:\+[[:alnum:].-]+)?$')),
+            (SELECT * FROM regexp_matches($2, '^([[:digit:].]+)(?:-([[:alnum:].-]+))?(?:\+[[:alnum:].-]+)?$'))
         )) x (left_portions, right_portions)
     ) x (left_version, right_version, left_prerelease, right_prerelease)
 
